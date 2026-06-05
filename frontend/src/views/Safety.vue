@@ -396,28 +396,35 @@ const loadInspections = async () => {
     const res = await safetyInspectionApi.list(params)
     inspectionRecords.value = res.data.results || res.data
     pagination.total = res.data.count || inspectionRecords.value.length
-
-    const today = dayjs().format('YYYY-MM-DD')
-    todayInspectionCount.value = inspectionRecords.value.filter(r =>
-      dayjs(r.inspection_time).format('YYYY-MM-DD') === today
-    ).length
-    minorCount.value = inspectionRecords.value.filter(r => r.violation_level === 'minor').length
-    majorCount.value = inspectionRecords.value.filter(r =>
-      ['major', 'critical'].includes(r.violation_level)
-    ).length
-    suspendedCount.value = inspectionRecords.value.filter(r => r.is_training_suspended).length
   } catch (e) {
     console.error(e)
   }
 }
 
-const handlePageChange = (page) => {
-  pagination.page = page
+const loadStatistics = async () => {
+  try {
+    const res = await safetyInspectionApi.list({ page_size: 10000 })
+    const allRecords = res.data.results || res.data
+
+    const today = dayjs().format('YYYY-MM-DD')
+    todayInspectionCount.value = allRecords.filter(r =>
+      dayjs(r.inspection_time).format('YYYY-MM-DD') === today
+    ).length
+    minorCount.value = allRecords.filter(r => r.violation_level === 'minor').length
+    majorCount.value = allRecords.filter(r =>
+      ['major', 'critical'].includes(r.violation_level)
+    ).length
+    suspendedCount.value = allRecords.filter(r => r.is_training_suspended).length
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const handlePageChange = () => {
   loadInspections()
 }
 
-const handleSizeChange = (size) => {
-  pagination.size = size
+const handleSizeChange = () => {
   pagination.page = 1
   loadInspections()
 }
@@ -441,6 +448,7 @@ const submitInspection = async () => {
     ElMessage.success('巡查记录提交成功')
     resetForm()
     loadInspections()
+    loadStatistics()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   } finally {
@@ -477,5 +485,6 @@ const resetFilter = () => {
 onMounted(() => {
   loadActiveIssues()
   loadInspections()
+  loadStatistics()
 })
 </script>

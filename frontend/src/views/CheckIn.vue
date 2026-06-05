@@ -614,20 +614,18 @@ const resetFilter = () => {
   loadCheckInRecords()
 }
 
-const handlePageChange = (page) => {
-  pagination.page = page
+const handlePageChange = () => {
   loadCheckInRecords()
 }
 
-const handleSizeChange = (size) => {
-  pagination.size = size
+const handleSizeChange = () => {
   pagination.page = 1
   loadCheckInRecords()
 }
 
 const loadStatistics = async () => {
   try {
-    const res = await checkInApi.list()
+    const res = await checkInApi.list({ page_size: 10000 })
     const allRecords = res.data.results || res.data
     const today = dayjs().format('YYYY-MM-DD')
     todayCount.value = allRecords.filter(r =>

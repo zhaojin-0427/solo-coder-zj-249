@@ -468,17 +468,26 @@ const loadRecords = async () => {
     const res = await scoreRecordApi.list(params)
     scoreRecords.value = res.data.results || res.data
     pagination.total = res.data.count || scoreRecords.value.length
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const loadStatistics = async () => {
+  try {
+    const res = await scoreRecordApi.list({ page_size: 10000 })
+    const allRecords = res.data.results || res.data
 
     const today = dayjs().format('YYYY-MM-DD')
-    todayCount.value = scoreRecords.value.filter(r =>
+    todayCount.value = allRecords.filter(r =>
       dayjs(r.record_time).format('YYYY-MM-DD') === today
     ).length
 
-    if (scoreRecords.value.length > 0) {
-      const totalScore = scoreRecords.value.reduce((sum, r) => sum + r.total_score, 0)
-      const totalShotsCount = scoreRecords.value.reduce((sum, r) => sum + r.shots_fired, 0)
+    if (allRecords.length > 0) {
+      const totalScore = allRecords.reduce((sum, r) => sum + r.total_score, 0)
+      const totalShotsCount = allRecords.reduce((sum, r) => sum + r.shots_fired, 0)
       avgScore.value = totalShotsCount > 0 ? (totalScore / totalShotsCount).toFixed(2) : 0
-      maxScore.value = Math.max(...scoreRecords.value.map(r => r.total_score))
+      maxScore.value = Math.max(...allRecords.map(r => r.total_score))
       totalShots.value = totalShotsCount
     }
   } catch (e) {
@@ -587,6 +596,7 @@ const submitScore = async () => {
     ElMessage.success('成绩提交成功')
     resetForm()
     loadRecords()
+    loadStatistics()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   } finally {
@@ -620,13 +630,11 @@ const resetForm = () => {
   scoreFormRef.value?.resetFields()
 }
 
-const handlePageChange = (page) => {
-  pagination.page = page
+const handlePageChange = () => {
   loadRecords()
 }
 
-const handleSizeChange = (size) => {
-  pagination.size = size
+const handleSizeChange = () => {
   pagination.page = 1
   loadRecords()
 }
@@ -642,6 +650,7 @@ const resetFilter = () => {
 onMounted(() => {
   loadActiveIssues()
   loadRecords()
+  loadStatistics()
 })
 </script>
 

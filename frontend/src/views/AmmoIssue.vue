@@ -660,23 +660,38 @@ const loadIssueRecords = async () => {
     const res = await ammoIssueApi.list(params)
     issueRecords.value = res.data.results || res.data
     pagination.total = res.data.count || issueRecords.value.length
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const loadStatistics = async () => {
+  try {
+    const [issueRes, returnRes] = await Promise.all([
+      ammoIssueApi.list({ page_size: 10000 }),
+      ammoReturnApi.list({ page_size: 10000 })
+    ])
+    
+    const allIssues = issueRes.data.results || issueRes.data
+    const allReturns = returnRes.data.results || returnRes.data
     
     const today = dayjs().format('YYYY-MM-DD')
-    todayIssueCount.value = issueRecords.value.filter(r =>
+    todayIssueCount.value = allIssues.filter(r =>
       dayjs(r.issue_time).format('YYYY-MM-DD') === today
+    ).length
+    todayReturnCount.value = allReturns.filter(r =>
+      dayjs(r.return_time).format('YYYY-MM-DD') === today
     ).length
   } catch (e) {
     console.error(e)
   }
 }
 
-const handlePageChange = (page) => {
-  pagination.page = page
+const handlePageChange = () => {
   loadIssueRecords()
 }
 
-const handleSizeChange = (size) => {
-  pagination.size = size
+const handleSizeChange = () => {
   pagination.page = 1
   loadIssueRecords()
 }
@@ -843,12 +858,12 @@ const loadAll = () => {
   loadActiveIssues()
   loadData()
   loadIssueRecords()
-  loadReturnRecords()
+  loadStatistics()
 }
 
 onMounted(() => {
   loadActiveIssues().then(() => loadData())
   loadIssueRecords()
-  loadReturnRecords()
+  loadStatistics()
 })
 </script>
