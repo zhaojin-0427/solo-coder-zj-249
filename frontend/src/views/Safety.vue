@@ -308,6 +308,8 @@
             :page-sizes="[10, 20, 50]"
             layout="total, sizes, prev, pager, next, jumper"
             style="margin-top: 16px; justify-content: flex-end; display: flex"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </el-tab-pane>
       </el-tabs>
@@ -389,17 +391,11 @@ const loadInspections = async () => {
     }
     if (filterForm.date) params.inspection_time__date = filterForm.date
     if (filterForm.violation_level) params.violation_level = filterForm.violation_level
+    if (filterForm.shooter_name) params.search = filterForm.shooter_name
 
     const res = await safetyInspectionApi.list(params)
     inspectionRecords.value = res.data.results || res.data
     pagination.total = res.data.count || inspectionRecords.value.length
-
-    if (filterForm.shooter_name) {
-      const keyword = filterForm.shooter_name.toLowerCase()
-      inspectionRecords.value = inspectionRecords.value.filter(r =>
-        r.shooter_info?.name.toLowerCase().includes(keyword)
-      )
-    }
 
     const today = dayjs().format('YYYY-MM-DD')
     todayInspectionCount.value = inspectionRecords.value.filter(r =>
@@ -413,6 +409,17 @@ const loadInspections = async () => {
   } catch (e) {
     console.error(e)
   }
+}
+
+const handlePageChange = (page) => {
+  pagination.page = page
+  loadInspections()
+}
+
+const handleSizeChange = (size) => {
+  pagination.size = size
+  pagination.page = 1
+  loadInspections()
 }
 
 const onIssueChange = (val) => {

@@ -314,6 +314,8 @@
             :page-sizes="[10, 20, 50]"
             layout="total, sizes, prev, pager, next, jumper"
             style="margin-top: 16px; justify-content: flex-end; display: flex"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </el-tab-pane>
       </el-tabs>
@@ -460,22 +462,12 @@ const loadRecords = async () => {
       page_size: pagination.size
     }
     if (filterForm.date) params.record_time__date = filterForm.date
+    if (filterForm.target_lane) params.target_lane = filterForm.target_lane
+    if (filterForm.shooter_name) params.search = filterForm.shooter_name
 
     const res = await scoreRecordApi.list(params)
     scoreRecords.value = res.data.results || res.data
     pagination.total = res.data.count || scoreRecords.value.length
-
-    if (filterForm.shooter_name) {
-      const keyword = filterForm.shooter_name.toLowerCase()
-      scoreRecords.value = scoreRecords.value.filter(r =>
-        r.shooter_info?.name.toLowerCase().includes(keyword)
-      )
-    }
-    if (filterForm.target_lane) {
-      scoreRecords.value = scoreRecords.value.filter(r =>
-        r.target_lane_info?.lane_number === filterForm.target_lane
-      )
-    }
 
     const today = dayjs().format('YYYY-MM-DD')
     todayCount.value = scoreRecords.value.filter(r =>
@@ -626,6 +618,17 @@ const resetForm = () => {
   })
   selectedIssue.value = null
   scoreFormRef.value?.resetFields()
+}
+
+const handlePageChange = (page) => {
+  pagination.page = page
+  loadRecords()
+}
+
+const handleSizeChange = (size) => {
+  pagination.size = size
+  pagination.page = 1
+  loadRecords()
 }
 
 const resetFilter = () => {

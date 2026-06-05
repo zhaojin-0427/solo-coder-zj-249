@@ -457,6 +457,17 @@
           </el-table-column>
           <el-table-column label="发弹员" width="100" prop="issuer" />
         </el-table>
+
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.size"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          style="margin-top: 16px; justify-content: flex-end; display: flex"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
+        />
       </el-tab-pane>
     </el-tabs>
 
@@ -585,6 +596,12 @@ const filterForm = reactive({
   date: ''
 })
 
+const pagination = reactive({
+  page: 1,
+  size: 10,
+  total: 0
+})
+
 const selectedAmmo = computed(() => {
   return ammunitions.value.find(a => a.id === issueForm.ammunition)
 })
@@ -632,19 +649,17 @@ const loadActiveIssues = async () => {
 
 const loadIssueRecords = async () => {
   try {
-    const params = {}
+    const params = {
+      page: pagination.page,
+      page_size: pagination.size
+    }
     if (filterForm.date) params.issue_time__date = filterForm.date
     if (filterForm.status) params.status = filterForm.status
+    if (filterForm.shooter_name) params.search = filterForm.shooter_name
     
     const res = await ammoIssueApi.list(params)
     issueRecords.value = res.data.results || res.data
-    
-    if (filterForm.shooter_name) {
-      const keyword = filterForm.shooter_name.toLowerCase()
-      issueRecords.value = issueRecords.value.filter(r =>
-        r.shooter_info?.name.toLowerCase().includes(keyword)
-      )
-    }
+    pagination.total = res.data.count || issueRecords.value.length
     
     const today = dayjs().format('YYYY-MM-DD')
     todayIssueCount.value = issueRecords.value.filter(r =>
@@ -653,6 +668,17 @@ const loadIssueRecords = async () => {
   } catch (e) {
     console.error(e)
   }
+}
+
+const handlePageChange = (page) => {
+  pagination.page = page
+  loadIssueRecords()
+}
+
+const handleSizeChange = (size) => {
+  pagination.size = size
+  pagination.page = 1
+  loadIssueRecords()
 }
 
 const loadReturnRecords = async () => {
@@ -809,6 +835,7 @@ const resetFilter = () => {
   filterForm.shooter_name = ''
   filterForm.status = ''
   filterForm.date = ''
+  pagination.page = 1
   loadIssueRecords()
 }
 

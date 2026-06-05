@@ -397,6 +397,8 @@
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
           style="margin-top: 16px; justify-content: flex-end; display: flex"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
         />
       </el-tab-pane>
     </el-tabs>
@@ -593,16 +595,12 @@ const loadCheckInRecords = async () => {
     if (filterForm.status) {
       params.status = filterForm.status
     }
+    if (filterForm.shooter_name) {
+      params.search = filterForm.shooter_name
+    }
     const res = await checkInApi.list(params)
     checkInRecords.value = res.data.results || res.data
     pagination.total = res.data.count || checkInRecords.value.length
-    
-    if (filterForm.shooter_name) {
-      const keyword = filterForm.shooter_name.toLowerCase()
-      checkInRecords.value = checkInRecords.value.filter(r =>
-        r.shooter_info?.name.toLowerCase().includes(keyword)
-      )
-    }
   } catch (e) {
     console.error(e)
   }
@@ -612,6 +610,17 @@ const resetFilter = () => {
   filterForm.shooter_name = ''
   filterForm.status = ''
   filterForm.date = ''
+  pagination.page = 1
+  loadCheckInRecords()
+}
+
+const handlePageChange = (page) => {
+  pagination.page = page
+  loadCheckInRecords()
+}
+
+const handleSizeChange = (size) => {
+  pagination.size = size
   pagination.page = 1
   loadCheckInRecords()
 }

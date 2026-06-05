@@ -43,7 +43,13 @@ class TargetLaneViewSet(viewsets.ModelViewSet):
 class CheckInViewSet(viewsets.ModelViewSet):
     queryset = CheckIn.objects.all()
     serializer_class = CheckInSerializer
-    filterset_fields = ['shooter', 'alcohol_test', 'psychological_status', 'status']
+    filterset_fields = {
+        'shooter': ['exact'],
+        'alcohol_test': ['exact'],
+        'psychological_status': ['exact'],
+        'status': ['exact'],
+        'checkin_time': ['exact', 'date', 'gte', 'lte']
+    }
     search_fields = ['shooter__name', 'operator']
 
     def create(self, request, *args, **kwargs):
@@ -56,7 +62,14 @@ class CheckInViewSet(viewsets.ModelViewSet):
 class AmmoIssueViewSet(viewsets.ModelViewSet):
     queryset = AmmoIssue.objects.all()
     serializer_class = AmmoIssueSerializer
-    filterset_fields = ['shooter', 'ammunition', 'target_lane', 'firearm', 'status']
+    filterset_fields = {
+        'shooter': ['exact'],
+        'ammunition': ['exact'],
+        'target_lane': ['exact'],
+        'firearm': ['exact'],
+        'status': ['exact'],
+        'issue_time': ['exact', 'date', 'gte', 'lte']
+    }
     search_fields = ['shooter__name', 'issuer']
 
     def create(self, request, *args, **kwargs):
@@ -90,13 +103,24 @@ class AmmoIssueViewSet(viewsets.ModelViewSet):
 class SafetyInspectionViewSet(viewsets.ModelViewSet):
     queryset = SafetyInspection.objects.all()
     serializer_class = SafetyInspectionSerializer
-    filterset_fields = ['shooter', 'target_lane', 'violation_level']
+    filterset_fields = {
+        'shooter': ['exact'],
+        'target_lane': ['exact'],
+        'violation_level': ['exact'],
+        'inspection_time': ['exact', 'date', 'gte', 'lte']
+    }
     search_fields = ['shooter__name', 'inspector', 'violation_type']
 
 class ScoreRecordViewSet(viewsets.ModelViewSet):
     queryset = ScoreRecord.objects.all()
     serializer_class = ScoreRecordSerializer
-    filterset_fields = ['shooter', 'target_lane', 'firearm', 'ammunition']
+    filterset_fields = {
+        'shooter': ['exact'],
+        'target_lane': ['exact'],
+        'firearm': ['exact'],
+        'ammunition': ['exact'],
+        'record_time': ['exact', 'date', 'gte', 'lte']
+    }
     search_fields = ['shooter__name', 'recorder']
 
     def create(self, request, *args, **kwargs):
