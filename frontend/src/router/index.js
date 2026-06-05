@@ -11,14 +11,39 @@ const routes = [
     component: () => import('@/views/CheckIn.vue')
   },
   {
+    path: '/training-plan',
+    name: 'TrainingPlan',
+    component: () => import('@/views/TrainingPlan.vue')
+  },
+  {
+    path: '/lane-reservation',
+    name: 'LaneReservation',
+    component: () => import('@/views/LaneReservation.vue')
+  },
+  {
     path: '/ammo-issue',
     name: 'AmmoIssue',
     component: () => import('@/views/AmmoIssue.vue')
   },
   {
+    path: '/ammo-batch',
+    name: 'AmmoBatch',
+    component: () => import('@/views/AmmoBatch.vue')
+  },
+  {
     path: '/safety',
     name: 'Safety',
     component: () => import('@/views/Safety.vue')
+  },
+  {
+    path: '/violation-disposal',
+    name: 'ViolationDisposal',
+    component: () => import('@/views/ViolationDisposal.vue')
+  },
+  {
+    path: '/risk-warning',
+    name: 'RiskWarning',
+    component: () => import('@/views/RiskWarning.vue')
   },
   {
     path: '/score',

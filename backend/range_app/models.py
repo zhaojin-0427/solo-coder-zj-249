@@ -117,6 +117,210 @@ class TargetLane(models.Model):
     def __str__(self):
         return f'{self.lane_number}号靶道 - {self.name}'
 
+class AmmoBatch(models.Model):
+    ammunition = models.ForeignKey(Ammunition, on_delete=models.CASCADE, verbose_name='弹药类型', related_name='batches')
+    batch_number = models.CharField('批次号', max_length=50, unique=True)
+    production_date = models.DateField('生产日期', null=True, blank=True)
+    expiry_date = models.DateField('有效期至', null=True, blank=True)
+    manufacturer = models.CharField('生产厂商', max_length=100, blank=True)
+    initial_quantity = models.IntegerField('初始数量', default=0)
+    current_quantity = models.IntegerField('当前数量', default=0)
+    safety_threshold = models.IntegerField('安全阈值', default=100)
+    storage_location = models.CharField('存储位置', max_length=100, blank=True)
+    quality_status = models.CharField('质量状态', max_length=20, choices=[
+        ('normal', '正常'),
+        ('warning', '预警'),
+        ('expired', '已过期'),
+        ('damaged', '破损')
+    ], default='normal')
+    inspector = models.CharField('检验员', max_length=50, blank=True)
+    inspection_date = models.DateField('检验日期', null=True, blank=True)
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '弹药批次'
+        verbose_name_plural = '弹药批次'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f'{self.ammunition.name} - {self.batch_number}'
+
+    def save(self, *args, **kwargs):
+        if self.current_quantity <= self.safety_threshold:
+            self.quality_status = 'warning'
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
+            self.quality_status = 'expired'
+        super().save(*args, **kwargs)
+
+class TrainingPlan(models.Model):
+    PLAN_STATUS = [
+        ('draft', '草稿'),
+        ('approved', '已批准'),
+        ('in_progress', '进行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ]
+
+    plan_name = models.CharField('计划名称', max_length=200)
+    plan_type = models.CharField('训练类型', max_length=50, choices=[
+        ('basic', '基础训练'),
+        ('advanced', '进阶训练'),
+        ('assessment', '考核评估'),
+        ('emergency', '应急训练'),
+        ('special', '专项训练')
+    ], default='basic')
+    description = models.TextField('训练描述', blank=True)
+    start_date = models.DateField('开始日期')
+    end_date = models.DateField('结束日期')
+    daily_start_time = models.TimeField('每日开始时间', default='08:00')
+    daily_end_time = models.TimeField('每日结束时间', default='18:00')
+    target_shooters = models.ManyToManyField(Shooter, related_name='training_plans', verbose_name='目标射手', blank=True)
+    required_qualification = models.CharField('要求资质等级', max_length=50, blank=True)
+    total_rounds_per_shooter = models.IntegerField('每人预计弹数', default=0)
+    planned_ammo_types = models.ManyToManyField(Ammunition, related_name='training_plans', verbose_name='计划弹药类型', blank=True)
+    required_firearm_types = models.CharField('要求枪械类型', max_length=200, blank=True)
+    lanes_count = models.IntegerField('需用靶道数', default=1)
+    creator = models.CharField('创建人', max_length=50, blank=True)
+    approver = models.CharField('批准人', max_length=50, blank=True)
+    approval_time = models.DateTimeField('批准时间', null=True, blank=True)
+    status = models.CharField('状态', max_length=20, choices=PLAN_STATUS, default='draft')
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+    update_time = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '训练计划'
+        verbose_name_plural = '训练计划'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return self.plan_name
+
+    def get_completion_rate(self):
+        total_schedules = self.schedules.count()
+        if total_schedules == 0:
+            return 0
+        completed = self.schedules.filter(status='completed').count()
+        return round((completed / total_schedules) * 100, 2)
+
+class TrainingSchedule(models.Model):
+    SCHEDULE_STATUS = [
+        ('pending', '待签到'),
+        ('checked_in', '已签到'),
+        ('in_progress', '进行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+        ('no_show', '未出席')
+    ]
+
+    training_plan = models.ForeignKey(TrainingPlan, on_delete=models.CASCADE, related_name='schedules', verbose_name='训练计划')
+    shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, related_name='schedules', verbose_name='射手')
+    target_lane = models.ForeignKey(TargetLane, on_delete=models.CASCADE, related_name='schedules', verbose_name='靶道')
+    firearm = models.ForeignKey(Firearm, on_delete=models.SET_NULL, related_name='schedules', verbose_name='枪械', null=True, blank=True)
+    schedule_date = models.DateField('训练日期')
+    start_time = models.TimeField('开始时间')
+    end_time = models.TimeField('结束时间')
+    allocated_rounds = models.IntegerField('分配弹数', default=0)
+    used_rounds = models.IntegerField('已用弹数', default=0)
+    status = models.CharField('状态', max_length=20, choices=SCHEDULE_STATUS, default='pending')
+    auto_generated = models.BooleanField('是否自动生成', default=True)
+    generation_reason = models.TextField('生成理由', blank=True)
+    conflict_warning = models.BooleanField('是否有冲突', default=False)
+    conflict_description = models.TextField('冲突描述', blank=True)
+    operator = models.CharField('操作员', max_length=50, blank=True)
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '训练排班'
+        verbose_name_plural = '训练排班'
+        ordering = ['-schedule_date', 'start_time']
+
+    def __str__(self):
+        return f'{self.shooter.name} - {self.schedule_date}'
+
+class LaneReservation(models.Model):
+    RESERVATION_STATUS = [
+        ('pending', '待确认'),
+        ('confirmed', '已确认'),
+        ('in_use', '使用中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+        ('no_show', '未到')
+    ]
+
+    target_lane = models.ForeignKey(TargetLane, on_delete=models.CASCADE, related_name='reservations', verbose_name='靶道')
+    shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, related_name='reservations', verbose_name='射手')
+    training_schedule = models.ForeignKey(TrainingSchedule, on_delete=models.SET_NULL, related_name='reservations', verbose_name='训练排班', null=True, blank=True)
+    reservation_date = models.DateField('预约日期')
+    start_time = models.TimeField('开始时间')
+    end_time = models.TimeField('结束时间')
+    purpose = models.CharField('用途', max_length=200, blank=True)
+    reserved_by = models.CharField('预约人', max_length=50, blank=True)
+    confirmed_by = models.CharField('确认人', max_length=50, blank=True)
+    confirm_time = models.DateTimeField('确认时间', null=True, blank=True)
+    status = models.CharField('状态', max_length=20, choices=RESERVATION_STATUS, default='pending')
+    conflict_detected = models.BooleanField('检测到冲突', default=False)
+    conflict_with = models.IntegerField('冲突排班ID', null=True, blank=True)
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '靶道预约'
+        verbose_name_plural = '靶道预约'
+        ordering = ['-reservation_date', 'start_time']
+
+    def __str__(self):
+        return f'{self.target_lane.lane_number}号靶道 - {self.reservation_date}'
+
+class RiskWarning(models.Model):
+    WARNING_LEVEL = [
+        ('low', '低风险'),
+        ('medium', '中风险'),
+        ('high', '高风险'),
+        ('critical', '严重风险')
+    ]
+    WARNING_STATUS = [
+        ('pending', '待处理'),
+        ('processing', '处理中'),
+        ('resolved', '已解决'),
+        ('ignored', '已忽略')
+    ]
+    WARNING_TYPE = [
+        ('ammo_stock', '弹药库存预警'),
+        ('ammo_expiry', '弹药过期预警'),
+        ('lane_conflict', '靶道冲突预警'),
+        ('shooter_risk', '射手风险预警'),
+        ('firearm_maintenance', '枪械维护预警'),
+        ('violation_risk', '违规风险预警'),
+        ('other', '其他预警')
+    ]
+
+    warning_type = models.CharField('预警类型', max_length=30, choices=WARNING_TYPE)
+    warning_level = models.CharField('预警等级', max_length=20, choices=WARNING_LEVEL)
+    title = models.CharField('预警标题', max_length=200)
+    description = models.TextField('预警描述')
+    related_model = models.CharField('关联模型', max_length=50, blank=True)
+    related_id = models.IntegerField('关联ID', null=True, blank=True)
+    shooter = models.ForeignKey(Shooter, on_delete=models.SET_NULL, related_name='risk_warnings', verbose_name='关联射手', null=True, blank=True)
+    ammunition = models.ForeignKey(Ammunition, on_delete=models.SET_NULL, related_name='risk_warnings', verbose_name='关联弹药', null=True, blank=True)
+    ammo_batch = models.ForeignKey(AmmoBatch, on_delete=models.SET_NULL, related_name='risk_warnings', verbose_name='关联批次', null=True, blank=True)
+    target_lane = models.ForeignKey(TargetLane, on_delete=models.SET_NULL, related_name='risk_warnings', verbose_name='关联靶道', null=True, blank=True)
+    status = models.CharField('处理状态', max_length=20, choices=WARNING_STATUS, default='pending')
+    handler = models.CharField('处理人', max_length=50, blank=True)
+    handle_time = models.DateTimeField('处理时间', null=True, blank=True)
+    handle_result = models.TextField('处理结果', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '风险预警'
+        verbose_name_plural = '风险预警'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f'{self.get_warning_level_display()} - {self.title}'
+
 class CheckIn(models.Model):
     ALCOHOL_STATUS = [
         ('pass', '正常(≤0.0mg/100ml)'),
@@ -135,6 +339,8 @@ class CheckIn(models.Model):
     ]
 
     shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, verbose_name='射手')
+    training_plan = models.ForeignKey(TrainingPlan, on_delete=models.SET_NULL, related_name='checkins', verbose_name='训练计划', null=True, blank=True)
+    training_schedule = models.ForeignKey(TrainingSchedule, on_delete=models.SET_NULL, related_name='checkins', verbose_name='训练排班', null=True, blank=True)
     checkin_time = models.DateTimeField('签到时间', default=timezone.now)
     id_verified = models.BooleanField('身份核验', default=False)
     id_verify_method = models.CharField('核验方式', max_length=50, default='身份证+人脸识别')
@@ -144,6 +350,7 @@ class CheckIn(models.Model):
     psychological_note = models.TextField('心理评估备注', blank=True)
     status = models.CharField('签到状态', max_length=20, choices=CHECKIN_STATUS, default='pass')
     operator = models.CharField('操作员', max_length=50, blank=True)
+    auto_associated = models.BooleanField('是否自动关联计划', default=False)
     remarks = models.TextField('备注', blank=True)
     create_time = models.DateTimeField('创建时间', auto_now_add=True)
 
@@ -162,16 +369,23 @@ class AmmoIssue(models.Model):
         ('completed', '已完成'),
     ]
 
-    checkin = models.OneToOneField(CheckIn, on_delete=models.CASCADE, verbose_name='签到记录')
+    checkin = models.OneToOneField(CheckIn, on_delete=models.CASCADE, verbose_name='签到记录', null=True, blank=True)
+    training_schedule = models.ForeignKey(TrainingSchedule, on_delete=models.SET_NULL, related_name='ammo_issues', verbose_name='训练排班', null=True, blank=True)
+    training_plan = models.ForeignKey(TrainingPlan, on_delete=models.SET_NULL, related_name='ammo_issues', verbose_name='训练计划', null=True, blank=True)
     shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, verbose_name='射手')
     ammunition = models.ForeignKey(Ammunition, on_delete=models.CASCADE, verbose_name='弹药')
+    ammo_batch = models.ForeignKey(AmmoBatch, on_delete=models.SET_NULL, related_name='ammo_issues', verbose_name='弹药批次', null=True, blank=True)
     issue_quantity = models.IntegerField('领用数量')
+    planned_quantity = models.IntegerField('计划额度', default=0)
     target_lane = models.ForeignKey(TargetLane, on_delete=models.CASCADE, verbose_name='靶道')
     firearm = models.ForeignKey(Firearm, on_delete=models.CASCADE, verbose_name='枪械')
     issue_time = models.DateTimeField('领用时间', default=timezone.now)
     expected_return_time = models.DateTimeField('预计归还时间', null=True, blank=True)
     status = models.CharField('状态', max_length=20, choices=ISSUE_STATUS, default='issued')
     issuer = models.CharField('发弹员', max_length=50, blank=True)
+    quota_exceeded = models.BooleanField('是否超计划额度', default=False)
+    batch_expired = models.BooleanField('批次是否过期', default=False)
+    stock_warning = models.BooleanField('库存预警', default=False)
     remarks = models.TextField('备注', blank=True)
     create_time = models.DateTimeField('创建时间', auto_now_add=True)
 
@@ -213,6 +427,58 @@ class SafetyInspection(models.Model):
     def __str__(self):
         return f'{self.shooter.name} - {self.inspection_time.strftime("%Y-%m-%d %H:%M")}'
 
+class ViolationDisposal(models.Model):
+    DISPOSAL_STATUS = [
+        ('pending', '待处置'),
+        ('notified', '已通知'),
+        ('confirmed', '责任人确认'),
+        ('rectified', '已整改'),
+        ('verified', '已验证'),
+        ('closed', '已闭环')
+    ]
+
+    safety_inspection = models.OneToOneField(SafetyInspection, on_delete=models.CASCADE, related_name='disposal', verbose_name='安全检查记录')
+    shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, related_name='violation_disposals', verbose_name='违规射手')
+    violation_level = models.CharField('违规等级', max_length=20, choices=SafetyInspection.VIOLATION_LEVEL)
+    disposal_flow = models.CharField('处置流程', max_length=50, choices=[
+        ('level1', '一级处置：口头警告+记录'),
+        ('level2', '二级处置：书面警告+暂停当日训练'),
+        ('level3', '三级处置：暂停训练+限制领弹+成绩锁定'),
+        ('level4', '四级处置：立即停止+列入黑名单+上报')
+    ])
+    status = models.CharField('处置状态', max_length=20, choices=DISPOSAL_STATUS, default='pending')
+    is_ammo_suspended = models.BooleanField('是否暂停领弹', default=False)
+    is_score_locked = models.BooleanField('是否锁定成绩', default=False)
+    suspension_end_date = models.DateField('暂停结束日期', null=True, blank=True)
+    notified_by = models.CharField('通知人', max_length=50, blank=True)
+    notified_time = models.DateTimeField('通知时间', null=True, blank=True)
+    responsible_person_confirm = models.BooleanField('责任人确认', default=False)
+    confirm_time = models.DateTimeField('确认时间', null=True, blank=True)
+    confirm_remark = models.TextField('责任人备注', blank=True)
+    rectification_measure = models.TextField('整改措施', blank=True)
+    rectification_deadline = models.DateField('整改期限', null=True, blank=True)
+    rectification_time = models.DateTimeField('整改完成时间', null=True, blank=True)
+    verified_by = models.CharField('验证人', max_length=50, blank=True)
+    verify_time = models.DateTimeField('验证时间', null=True, blank=True)
+    verify_remark = models.TextField('验证备注', blank=True)
+    closed_by = models.CharField('闭环人', max_length=50, blank=True)
+    close_time = models.DateTimeField('闭环时间', null=True, blank=True)
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '违规处置'
+        verbose_name_plural = '违规处置'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f'{self.shooter.name} - {self.get_violation_level_display()}'
+
+    def get_handling_duration(self):
+        if self.close_time and self.create_time:
+            return (self.close_time - self.create_time).total_seconds() / 3600
+        return None
+
 class ScoreRecord(models.Model):
     ammo_issue = models.ForeignKey(AmmoIssue, on_delete=models.CASCADE, verbose_name='领用记录')
     shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, verbose_name='射手')
@@ -253,15 +519,22 @@ class AmmoReturn(models.Model):
     ammo_issue = models.OneToOneField(AmmoIssue, on_delete=models.CASCADE, verbose_name='领用记录')
     shooter = models.ForeignKey(Shooter, on_delete=models.CASCADE, verbose_name='射手')
     ammunition = models.ForeignKey(Ammunition, on_delete=models.CASCADE, verbose_name='弹药')
+    ammo_batch = models.ForeignKey(AmmoBatch, on_delete=models.SET_NULL, related_name='ammo_returns', verbose_name='弹药批次', null=True, blank=True)
     issued_quantity = models.IntegerField('领用数量')
     consumed_quantity = models.IntegerField('消耗数量')
     returned_quantity = models.IntegerField('归还数量')
     shell_casing_returned = models.IntegerField('弹壳回收数量')
     shell_casing_missing = models.IntegerField('弹壳缺失数量', default=0)
+    has_exception = models.BooleanField('是否有异常', default=False)
+    exception_description = models.TextField('异常说明', blank=True)
+    responsible_person = models.CharField('责任人', max_length=50, blank=True)
+    responsible_person_confirm = models.BooleanField('责任人确认', default=False)
+    confirm_time = models.DateTimeField('确认时间', null=True, blank=True)
     return_time = models.DateTimeField('归还时间', default=timezone.now)
     receiver = models.CharField('收弹员', max_length=50, blank=True)
     quantity_verified = models.BooleanField('数量核对', default=True)
     shell_casing_verified = models.BooleanField('弹壳核对', default=True)
+    closure_complete = models.BooleanField('闭环完成', default=False)
     remarks = models.TextField('备注', blank=True)
     create_time = models.DateTimeField('创建时间', auto_now_add=True)
 
@@ -274,7 +547,42 @@ class AmmoReturn(models.Model):
         if self.issued_quantity and self.consumed_quantity:
             self.returned_quantity = self.issued_quantity - self.consumed_quantity
             self.shell_casing_missing = self.consumed_quantity - self.shell_casing_returned
+        if self.shell_casing_missing > 0 or self.returned_quantity < 0:
+            self.has_exception = True
+        if self.quantity_verified and self.shell_casing_verified and self.responsible_person_confirm:
+            self.closure_complete = True
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.shooter.name} 归还 {self.returned_quantity}发'
+
+class AmmoBatchFlow(models.Model):
+    FLOW_TYPE = [
+        ('in', '入库'),
+        ('out', '出库'),
+        ('issue', '领用'),
+        ('return', '归还'),
+        ('consume', '消耗'),
+        ('adjust', '调整'),
+        ('scrap', '报废')
+    ]
+
+    ammo_batch = models.ForeignKey(AmmoBatch, on_delete=models.CASCADE, related_name='flows', verbose_name='弹药批次')
+    flow_type = models.CharField('流向类型', max_length=20, choices=FLOW_TYPE)
+    quantity = models.IntegerField('变动数量')
+    balance_before = models.IntegerField('变动前数量')
+    balance_after = models.IntegerField('变动后数量')
+    related_shooter = models.ForeignKey(Shooter, on_delete=models.SET_NULL, related_name='ammo_flows', verbose_name='关联射手', null=True, blank=True)
+    related_issue = models.ForeignKey(AmmoIssue, on_delete=models.SET_NULL, related_name='batch_flows', verbose_name='关联领用', null=True, blank=True)
+    related_return = models.ForeignKey(AmmoReturn, on_delete=models.SET_NULL, related_name='batch_flows', verbose_name='关联归还', null=True, blank=True)
+    operator = models.CharField('操作员', max_length=50, blank=True)
+    remarks = models.TextField('备注', blank=True)
+    create_time = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        verbose_name = '弹药批次流向'
+        verbose_name_plural = '弹药批次流向'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f'{self.ammo_batch.batch_number} - {self.get_flow_type_display()}'

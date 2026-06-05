@@ -69,7 +69,62 @@ export const ammoReturnApi = {
 }
 
 export const statisticsApi = {
-  dashboard: () => request.get('/statistics/')
+  dashboard: () => request.get('/statistics/'),
+  advanced: () => request.get('/advanced-statistics/')
+}
+
+export const ammoBatchApi = {
+  list: (params) => request.get('/ammo-batches/', { params }),
+  create: (data) => request.post('/ammo-batches/', data),
+  update: (id, data) => request.put(`/ammo-batches/${id}/`, data),
+  delete: (id) => request.delete(`/ammo-batches/${id}/`),
+  export: (params) => request.get('/ammo-batches/export/', { params, responseType: 'blob' })
+}
+
+export const trainingPlanApi = {
+  list: (params) => request.get('/training-plans/', { params }),
+  create: (data) => request.post('/training-plans/', data),
+  update: (id, data) => request.put(`/training-plans/${id}/`, data),
+  delete: (id) => request.delete(`/training-plans/${id}/`),
+  generateSchedules: (id) => request.post(`/training-plans/${id}/generate-schedules/`),
+  export: (params) => request.get('/training-plans/export/', { params, responseType: 'blob' })
+}
+
+export const trainingScheduleApi = {
+  list: (params) => request.get('/training-schedules/', { params }),
+  create: (data) => request.post('/training-schedules/', data),
+  update: (id, data) => request.put(`/training-schedules/${id}/`, data),
+  delete: (id) => request.delete(`/training-schedules/${id}/`),
+  export: (params) => request.get('/training-schedules/export/', { params, responseType: 'blob' })
+}
+
+export const laneReservationApi = {
+  list: (params) => request.get('/lane-reservations/', { params }),
+  create: (data) => request.post('/lane-reservations/', data),
+  update: (id, data) => request.put(`/lane-reservations/${id}/`, data),
+  delete: (id) => request.delete(`/lane-reservations/${id}/`),
+  export: (params) => request.get('/lane-reservations/export/', { params, responseType: 'blob' })
+}
+
+export const riskWarningApi = {
+  list: (params) => request.get('/risk-warnings/', { params }),
+  update: (id, data) => request.put(`/risk-warnings/${id}/`, data),
+  export: (params) => request.get('/risk-warnings/export/', { params, responseType: 'blob' })
+}
+
+export const violationDisposalApi = {
+  list: (params) => request.get('/violation-disposals/', { params }),
+  update: (id, data) => request.put(`/violation-disposals/${id}/`, data),
+  export: (params) => request.get('/violation-disposals/export/', { params, responseType: 'blob' })
+}
+
+export const ammoBatchFlowApi = {
+  list: (params) => request.get('/ammo-batch-flows/', { params }),
+  export: (params) => request.get('/ammo-batch-flows/export/', { params, responseType: 'blob' })
+}
+
+export const scheduleRecommendationApi = {
+  generate: (planId) => request.get('/generate-schedule-recommendations/', { params: { plan_id: planId } })
 }
 
 export default request

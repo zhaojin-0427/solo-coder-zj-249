@@ -26,13 +26,33 @@
             <el-icon><User /></el-icon>
             <span>射手登记</span>
           </el-menu-item>
+          <el-menu-item index="/training-plan">
+            <el-icon><Calendar /></el-icon>
+            <span>训练计划</span>
+          </el-menu-item>
+          <el-menu-item index="/lane-reservation">
+            <el-icon><Tickets /></el-icon>
+            <span>靶道预约</span>
+          </el-menu-item>
           <el-menu-item index="/ammo-issue">
             <el-icon><Box /></el-icon>
             <span>弹药领用</span>
           </el-menu-item>
+          <el-menu-item index="/ammo-batch">
+            <el-icon><Coin /></el-icon>
+            <span>弹药批次</span>
+          </el-menu-item>
           <el-menu-item index="/safety">
             <el-icon><Warning /></el-icon>
             <span>安全巡查</span>
+          </el-menu-item>
+          <el-menu-item index="/violation-disposal">
+            <el-icon><CircleCheck /></el-icon>
+            <span>违规处置</span>
+          </el-menu-item>
+          <el-menu-item index="/risk-warning">
+            <el-icon><BellFilled /></el-icon>
+            <span>风险预警</span>
           </el-menu-item>
           <el-menu-item index="/score">
             <el-icon><Trophy /></el-icon>
