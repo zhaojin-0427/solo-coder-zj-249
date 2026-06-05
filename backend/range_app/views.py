@@ -129,6 +129,7 @@ class AmmoBatchViewSet(ExportMixin, viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
+        today = timezone.now().date()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -195,7 +196,7 @@ class TrainingPlanViewSet(ExportMixin, viewsets.ModelViewSet):
         )
         return queryset
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='generate-schedules')
     def generate_schedules(self, request, pk=None):
         plan = self.get_object()
         recommendations, conflicts, warnings = self._generate_schedule_recommendations(plan)

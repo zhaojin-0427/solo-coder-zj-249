@@ -35,7 +35,7 @@ python manage.py migrate
 
 echo ""
 echo "检查数据库是否已初始化..."
-DB_COUNT=$(python -c "import django; django.setup(); from range_app.models import Shooter; print(Shooter.objects.count())" 2>/dev/null || echo "0")
+DB_COUNT=$(python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shooting_range.settings'); import django; django.setup(); from range_app.models import Shooter; print(Shooter.objects.count())" 2>/dev/null || echo "0")
 
 if [ "$DB_COUNT" -eq "0" ]; then
     echo ""
@@ -46,6 +46,8 @@ fi
 echo ""
 echo "创建超级用户(如果不存在)..."
 python -c "
+import os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shooting_range.settings')
 import django
 django.setup()
 from django.contrib.auth.models import User

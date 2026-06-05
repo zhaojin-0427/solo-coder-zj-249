@@ -128,7 +128,7 @@
         </el-table-column>
         <el-table-column label="冲突检测" width="100" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.has_conflict" type="danger" effect="dark" size="small">
+            <el-tag v-if="row.conflict_detected" type="danger" effect="dark" size="small">
               有冲突
             </el-tag>
             <el-tag v-else type="success" effect="dark" size="small">
@@ -137,7 +137,7 @@
           </template>
         </el-table-column>
         <el-table-column label="创建时间" width="160">
-          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.create_time) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{ row }">

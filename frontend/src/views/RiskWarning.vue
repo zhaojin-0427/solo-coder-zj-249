@@ -47,7 +47,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="风险等级">
-          <el-select v-model="filterForm.risk_level" placeholder="全部" clearable style="width: 130px">
+          <el-select v-model="filterForm.warning_level" placeholder="全部" clearable style="width: 130px">
             <el-option label="紧急" value="critical" />
             <el-option label="高" value="high" />
             <el-option label="中" value="medium" />
@@ -108,8 +108,8 @@
         <el-table-column type="selection" width="50" />
         <el-table-column label="风险等级" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getLevelType(row.risk_level)" effect="dark" size="small">
-              {{ row.risk_level_display }}
+            <el-tag :type="getLevelType(row.warning_level)" effect="dark" size="small">
+              {{ row.warning_level_display }}
             </el-tag>
           </template>
         </el-table-column>
@@ -121,12 +121,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="title" label="预警标题" min-width="180" />
-        <el-table-column prop="message" label="预警详情" min-width="250" />
+        <el-table-column prop="description" label="预警详情" min-width="250" />
         <el-table-column label="关联对象" width="150">
           <template #default="{ row }">
-            <span v-if="row.related_entity_type">
-              {{ row.related_entity_type }}
-              <el-tag v-if="row.related_entity_id" size="small">#{{ row.related_entity_id }}</el-tag>
+            <span v-if="row.related_model">
+              {{ row.related_model }}
+              <el-tag v-if="row.related_id" size="small">#{{ row.related_id }}</el-tag>
             </span>
             <span v-else style="color: #909399">无</span>
           </template>
@@ -189,8 +189,8 @@
       <div v-if="selectedWarning">
         <el-descriptions :column="2" border style="margin-bottom: 16px">
           <el-descriptions-item label="预警等级">
-            <el-tag :type="getLevelType(selectedWarning.risk_level)" effect="dark">
-              {{ selectedWarning.risk_level_display }}
+            <el-tag :type="getLevelType(selectedWarning.warning_level)" effect="dark">
+              {{ selectedWarning.warning_level_display }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="预警类型">
@@ -200,7 +200,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="预警标题">{{ selectedWarning.title }}</el-descriptions-item>
           <el-descriptions-item label="预警时间">{{ formatDateTime(selectedWarning.created_at) }}</el-descriptions-item>
-          <el-descriptions-item :span="2" label="预警详情">{{ selectedWarning.message }}</el-descriptions-item>
+          <el-descriptions-item :span="2" label="预警详情">{{ selectedWarning.description }}</el-descriptions-item>
         </el-descriptions>
 
         <el-form :model="processForm" :rules="processRules" ref="processFormRef" label-width="100px">
@@ -210,9 +210,9 @@
               <el-radio value="processing">处理中</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="处理措施" prop="handling_notes">
+          <el-form-item label="处理措施" prop="handle_result">
             <el-input
-              v-model="processForm.handling_notes"
+              v-model="processForm.handle_result"
               type="textarea"
               :rows="4"
               placeholder="请详细描述处理措施和结果..."
@@ -233,8 +233,8 @@
       <div v-if="selectedWarning">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="预警等级">
-            <el-tag :type="getLevelType(selectedWarning.risk_level)" effect="dark">
-              {{ selectedWarning.risk_level_display }}
+            <el-tag :type="getLevelType(selectedWarning.warning_level)" effect="dark">
+              {{ selectedWarning.warning_level_display }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="预警类型">
@@ -249,9 +249,9 @@
           </el-descriptions-item>
           <el-descriptions-item label="预警时间">{{ formatDateTime(selectedWarning.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="预警标题" :span="2">{{ selectedWarning.title }}</el-descriptions-item>
-          <el-descriptions-item label="预警详情" :span="2">{{ selectedWarning.message }}</el-descriptions-item>
-          <el-descriptions-item v-if="selectedWarning.related_entity_type" label="关联对象">
-            {{ selectedWarning.related_entity_type }} #{{ selectedWarning.related_entity_id }}
+          <el-descriptions-item label="预警详情" :span="2">{{ selectedWarning.description }}</el-descriptions-item>
+          <el-descriptions-item v-if="selectedWarning.related_model" label="关联对象">
+            {{ selectedWarning.related_model }} #{{ selectedWarning.related_id }}
           </el-descriptions-item>
           <el-descriptions-item v-if="selectedWarning.deadline" label="处理时限">
             {{ formatDateTime(selectedWarning.deadline) }}
@@ -259,11 +259,11 @@
           <el-descriptions-item v-if="selectedWarning.handled_by" label="处理人">
             {{ selectedWarning.handled_by }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="selectedWarning.handled_at" label="处理时间">
-            {{ formatDateTime(selectedWarning.handled_at) }}
+          <el-descriptions-item v-if="selectedWarning.handle_time" label="处理时间">
+            {{ formatDateTime(selectedWarning.handle_time) }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="selectedWarning.handling_notes" label="处理备注" :span="2">
-            {{ selectedWarning.handling_notes }}
+          <el-descriptions-item v-if="selectedWarning.handle_result" label="处理备注" :span="2">
+            {{ selectedWarning.handle_result }}
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -296,7 +296,7 @@ const resolvedCount = ref(0)
 
 const filterForm = reactive({
   warning_type: '',
-  risk_level: '',
+  warning_level: '',
   status: '',
   date_range: []
 })
@@ -309,13 +309,13 @@ const pagination = reactive({
 
 const processForm = reactive({
   status: 'resolved',
-  handling_notes: '',
+  handle_result: '',
   handled_by: ''
 })
 
 const processRules = {
-  status: [{ required: true, message: '请选择处理结果', trigger: 'change' }],
-  handling_notes: [{ required: true, message: '请输入处理措施', trigger: 'blur' }]
+  status: [{ required: true, description: '请选择处理结果', trigger: 'change' }],
+  handle_result: [{ required: true, description: '请输入处理措施', trigger: 'blur' }]
 }
 
 const formatDateTime = (date) => date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-'
@@ -366,7 +366,7 @@ const loadWarnings = async () => {
       ordering: '-created_at'
     }
     if (filterForm.warning_type) params.warning_type = filterForm.warning_type
-    if (filterForm.risk_level) params.risk_level = filterForm.risk_level
+    if (filterForm.warning_level) params.warning_level = filterForm.warning_level
     if (filterForm.status) params.status = filterForm.status
     if (filterForm.date_range?.length === 2) {
       params.created_at__gte = filterForm.date_range[0]
@@ -378,10 +378,10 @@ const loadWarnings = async () => {
     pagination.total = res.data.count || warningList.value.length
 
     const all = res.data.results || res.data
-    criticalCount.value = all.filter(w => w.risk_level === 'critical' && w.status !== 'resolved' && w.status !== 'ignored').length
-    highCount.value = all.filter(w => w.risk_level === 'high' && w.status !== 'resolved' && w.status !== 'ignored').length
-    mediumCount.value = all.filter(w => w.risk_level === 'medium' && w.status !== 'resolved' && w.status !== 'ignored').length
-    lowCount.value = all.filter(w => w.risk_level === 'low' && w.status !== 'resolved' && w.status !== 'ignored').length
+    criticalCount.value = all.filter(w => w.warning_level === 'critical' && w.status !== 'resolved' && w.status !== 'ignored').length
+    highCount.value = all.filter(w => w.warning_level === 'high' && w.status !== 'resolved' && w.status !== 'ignored').length
+    mediumCount.value = all.filter(w => w.warning_level === 'medium' && w.status !== 'resolved' && w.status !== 'ignored').length
+    lowCount.value = all.filter(w => w.warning_level === 'low' && w.status !== 'resolved' && w.status !== 'ignored').length
     resolvedCount.value = all.filter(w => w.status === 'resolved').length
   } catch (e) {
     console.error(e)
@@ -397,7 +397,7 @@ const handleSizeChange = () => {
 
 const resetFilter = () => {
   filterForm.warning_type = ''
-  filterForm.risk_level = ''
+  filterForm.warning_level = ''
   filterForm.status = ''
   filterForm.date_range = []
   pagination.page = 1
@@ -416,7 +416,7 @@ const handleSelectionChange = (val) => {
 const openProcessDialog = (row) => {
   selectedWarning.value = row
   processForm.status = 'resolved'
-  processForm.handling_notes = ''
+  processForm.handle_result = ''
   processForm.handled_by = ''
   processDialogVisible.value = true
 }
@@ -434,9 +434,9 @@ const submitProcess = async () => {
     const data = {
       ...selectedWarning.value,
       status: processForm.status,
-      handling_notes: processForm.handling_notes,
+      handle_result: processForm.handle_result,
       handled_by: processForm.handled_by,
-      handled_at: dayjs().format('YYYY-MM-DD HH:mm:ss')
+      handle_time: dayjs().format('YYYY-MM-DD HH:mm:ss')
     }
 
     await riskWarningApi.update(selectedWarning.value.id, data)
@@ -469,7 +469,7 @@ const exportData = async () => {
   try {
     const params = { ordering: '-created_at' }
     if (filterForm.warning_type) params.warning_type = filterForm.warning_type
-    if (filterForm.risk_level) params.risk_level = filterForm.risk_level
+    if (filterForm.warning_level) params.warning_level = filterForm.warning_level
     if (filterForm.status) params.status = filterForm.status
     if (filterForm.date_range?.length === 2) {
       params.created_at__gte = filterForm.date_range[0]
