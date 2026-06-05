@@ -1,0 +1,168 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+  background-color: #f0f2f5;
+}
+
+.page-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #409EFF;
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #409EFF;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pass {
+  background-color: #f0f9eb;
+  color: #67c23a;
+}
+
+.status-warning {
+  background-color: #fdf6ec;
+  color: #e6a23c;
+}
+
+.status-fail {
+  background-color: #fef0f0;
+  color: #f56c6c;
+}
+
+.card-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  flex: 1;
+  min-width: 200px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 20px;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.stat-card.blue {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+}
+
+.stat-card.green {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  box-shadow: 0 4px 12px rgba(67, 233, 123, 0.3);
+}
+
+.stat-card.orange {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  box-shadow: 0 4px 12px rgba(250, 112, 154, 0.3);
+}
+
+.stat-card.red {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.stat-card.purple {
+  background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+  box-shadow: 0 4px 12px rgba(161, 140, 209, 0.3);
+}
+
+.stat-label {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.chart-container {
+  width: 100%;
+  height: 350px;
+  margin-bottom: 24px;
+}
+
+.step-container {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.info-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
+}
+
+.el-table {
+  font-size: 13px;
+}
+
+.el-table :deep(.el-table__header th) {
+  background-color: #f5f7fa;
+  color: #303133;
+  font-weight: 600;
+}
