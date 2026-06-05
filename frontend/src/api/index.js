@@ -1,13 +1,50 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import {
+  adaptTrainingPlan,
+  adaptTrainingSchedule,
+  adaptRiskWarning,
+  adaptLaneReservation,
+  adaptAmmoBatch,
+  adaptAmmoBatchFlow,
+  adaptPaginatedResponse
+} from '@/adapters'
 
 const request = axios.create({
   baseURL: '/api',
   timeout: 15000
 })
 
+const getAdapterForUrl = (url) => {
+  if (url.includes('/training-plans/') && !url.includes('/training-schedules/')) {
+    return adaptTrainingPlan
+  }
+  if (url.includes('/training-schedules/')) {
+    return adaptTrainingSchedule
+  }
+  if (url.includes('/risk-warnings/')) {
+    return adaptRiskWarning
+  }
+  if (url.includes('/lane-reservations/')) {
+    return adaptLaneReservation
+  }
+  if (url.includes('/ammo-batches/') && !url.includes('/ammo-batch-flows/')) {
+    return adaptAmmoBatch
+  }
+  if (url.includes('/ammo-batch-flows/')) {
+    return adaptAmmoBatchFlow
+  }
+  return null
+}
+
 request.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const adapter = getAdapterForUrl(response.config.url)
+    if (adapter && response.config.method !== 'head' && !response.config.url.includes('/export/')) {
+      return adaptPaginatedResponse(response, adapter)
+    }
+    return response
+  },
   (error) => {
     ElMessage.error(error.response?.data?.error || '请求失败，请稍后重试')
     return Promise.reject(error)

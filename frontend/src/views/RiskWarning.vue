@@ -37,29 +37,32 @@
       <el-form :inline="true" :model="filterForm" style="margin-bottom: 16px">
         <el-form-item label="预警类型">
           <el-select v-model="filterForm.warning_type" placeholder="全部" clearable style="width: 150px">
-            <el-option label="弹药库存" value="ammo_stock" />
-            <el-option label="弹药过期" value="ammo_expiry" />
-            <el-option label="靶道冲突" value="lane_conflict" />
-            <el-option label="射手风险" value="shooter_risk" />
-            <el-option label="枪械状态" value="firearm_status" />
-            <el-option label="违规预警" value="violation" />
-            <el-option label="安全阈值" value="safety_threshold" />
+            <el-option
+              v-for="opt in warningTypeOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="风险等级">
           <el-select v-model="filterForm.warning_level" placeholder="全部" clearable style="width: 130px">
-            <el-option label="紧急" value="critical" />
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
+            <el-option
+              v-for="opt in warningLevelOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" placeholder="全部" clearable style="width: 130px">
-            <el-option label="待处理" value="pending" />
-            <el-option label="处理中" value="processing" />
-            <el-option label="已处理" value="resolved" />
-            <el-option label="已忽略" value="ignored" />
+            <el-option
+              v-for="opt in warningStatusOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
@@ -278,6 +281,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { riskWarningApi } from '@/api'
+import {
+  formatDateTime, getRiskLevelType, getRiskLevelText,
+  getRiskTypeColor, getRiskStatusType, isOverdue, downloadFile
+} from '@/utils'
+import { getFilterOptions, buildFilterParams, buildPaginationParams } from '@/adapters'
 import dayjs from 'dayjs'
 
 const processDialogVisible = ref(false)
@@ -318,59 +326,22 @@ const processRules = {
   handle_result: [{ required: true, description: '请输入处理措施', trigger: 'blur' }]
 }
 
-const formatDateTime = (date) => date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-'
+const warningTypeOptions = getFilterOptions('riskWarning', 'warning_type')
+const warningLevelOptions = getFilterOptions('riskWarning', 'warning_level')
+const warningStatusOptions = getFilterOptions('riskWarning', 'status')
 
-const getLevelType = (level) => {
-  const map = {
-    critical: 'danger',
-    high: 'warning',
-    medium: 'primary',
-    low: 'info'
-  }
-  return map[level] || 'info'
-}
-
-const getTypeColor = (type) => {
-  const map = {
-    ammo_stock: 'warning',
-    ammo_expiry: 'danger',
-    lane_conflict: 'danger',
-    shooter_risk: 'warning',
-    firearm_status: 'primary',
-    violation: 'danger',
-    safety_threshold: 'warning'
-  }
-  return map[type] || 'info'
-}
-
-const getStatusType = (status) => {
-  const map = {
-    pending: 'warning',
-    processing: 'primary',
-    resolved: 'success',
-    ignored: 'info'
-  }
-  return map[status] || 'info'
-}
-
-const isOverdue = (deadline) => {
-  if (!deadline) return false
-  return dayjs(deadline).isBefore(dayjs())
-}
+const getLevelType = getRiskLevelType
+const getTypeColor = getRiskTypeColor
+const getStatusType = getRiskStatusType
 
 const loadWarnings = async () => {
   try {
     const params = {
-      page: pagination.page,
-      page_size: pagination.size,
+      ...buildPaginationParams(pagination),
+      ...buildFilterParams(filterForm, {
+        date_range: 'created_at'
+      }),
       ordering: '-created_at'
-    }
-    if (filterForm.warning_type) params.warning_type = filterForm.warning_type
-    if (filterForm.warning_level) params.warning_level = filterForm.warning_level
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.date_range?.length === 2) {
-      params.created_at__gte = filterForm.date_range[0]
-      params.created_at__lte = filterForm.date_range[1]
     }
 
     const res = await riskWarningApi.list(params)
@@ -467,13 +438,11 @@ const handleBatchProcess = () => {
 
 const exportData = async () => {
   try {
-    const params = { ordering: '-created_at' }
-    if (filterForm.warning_type) params.warning_type = filterForm.warning_type
-    if (filterForm.warning_level) params.warning_level = filterForm.warning_level
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.date_range?.length === 2) {
-      params.created_at__gte = filterForm.date_range[0]
-      params.created_at__lte = filterForm.date_range[1]
+    const params = {
+      ...buildFilterParams(filterForm, {
+        date_range: 'created_at'
+      }),
+      ordering: '-created_at'
     }
 
     const res = await riskWarningApi.export(params)
@@ -482,17 +451,6 @@ const exportData = async () => {
     console.error(e)
     ElMessage.error('导出失败')
   }
-}
-
-const downloadFile = (response, filename) => {
-  const url = window.URL.createObjectURL(new Blob([response.data]))
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', filename)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 onMounted(() => {

@@ -19,10 +19,14 @@ class ShooterSerializer(serializers.ModelSerializer):
 class AmmunitionSerializer(serializers.ModelSerializer):
     ammo_type_display = serializers.CharField(source='get_ammo_type_display', read_only=True)
     caliber_display = serializers.CharField(source='get_caliber_display', read_only=True)
+    specification = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Ammunition
         fields = '__all__'
+
+    def get_specification(self, obj):
+        return f'{obj.get_caliber_display()} {obj.get_ammo_type_display()}'
 
 class FirearmSerializer(serializers.ModelSerializer):
     firearm_type_display = serializers.CharField(source='get_firearm_type_display', read_only=True)
@@ -44,6 +48,7 @@ class AmmoBatchSerializer(serializers.ModelSerializer):
     quality_status_display = serializers.CharField(source='get_quality_status_display', read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
+    supplier = serializers.CharField(source='manufacturer', read_only=True, allow_null=True)
 
     class Meta:
         model = AmmoBatch
@@ -67,6 +72,8 @@ class TrainingScheduleSerializer(serializers.ModelSerializer):
     target_lane_info = TargetLaneSerializer(source='target_lane', read_only=True)
     firearm_info = FirearmSerializer(source='firearm', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    actual_rounds = serializers.IntegerField(source='used_rounds', read_only=True)
+    has_conflict = serializers.BooleanField(source='conflict_warning', read_only=True)
 
     class Meta:
         model = TrainingSchedule
@@ -76,7 +83,9 @@ class LaneReservationSerializer(serializers.ModelSerializer):
     target_lane_info = TargetLaneSerializer(source='target_lane', read_only=True)
     shooter_info = ShooterSerializer(source='shooter', read_only=True)
     training_schedule_info = TrainingScheduleSerializer(source='training_schedule', read_only=True)
+    training_plan_info = TrainingPlanSerializer(source='training_schedule.training_plan', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    has_conflict = serializers.BooleanField(source='conflict_detected', read_only=True)
 
     class Meta:
         model = LaneReservation
@@ -90,6 +99,8 @@ class RiskWarningSerializer(serializers.ModelSerializer):
     ammunition_info = AmmunitionSerializer(source='ammunition', read_only=True)
     ammo_batch_info = AmmoBatchSerializer(source='ammo_batch', read_only=True)
     target_lane_info = TargetLaneSerializer(source='target_lane', read_only=True)
+    created_at = serializers.DateTimeField(source='create_time', read_only=True)
+    handled_by = serializers.CharField(source='handler', read_only=True, allow_null=True)
 
     class Meta:
         model = RiskWarning
@@ -170,10 +181,27 @@ class AmmoBatchFlowSerializer(serializers.ModelSerializer):
     ammo_batch_info = AmmoBatchSerializer(source='ammo_batch', read_only=True)
     flow_type_display = serializers.CharField(source='get_flow_type_display', read_only=True)
     related_shooter_info = ShooterSerializer(source='related_shooter', read_only=True)
+    operation_time = serializers.DateTimeField(source='create_time', read_only=True)
+    related_record = serializers.SerializerMethodField(read_only=True)
+    related_record_type = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = AmmoBatchFlow
         fields = '__all__'
+
+    def get_related_record(self, obj):
+        if obj.related_issue:
+            return obj.related_issue.id
+        if obj.related_return:
+            return obj.related_return.id
+        return None
+
+    def get_related_record_type(self, obj):
+        if obj.related_issue:
+            return 'ammo_issue'
+        if obj.related_return:
+            return 'ammo_return'
+        return None
 
 class ScheduleRecommendationSerializer(serializers.Serializer):
     training_plan_id = serializers.IntegerField(required=True)

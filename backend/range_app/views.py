@@ -307,7 +307,10 @@ class TrainingPlanViewSet(ExportMixin, viewsets.ModelViewSet):
                                 'lane_name': lane.name,
                                 'date': schedule_date.isoformat(),
                                 'conflict_with': existing.id,
-                                'conflict_time': f'{existing.start_time} - {existing.end_time}'
+                                'conflict_time': f'{existing.start_time} - {existing.end_time}',
+                                'type': 'lane',
+                                'type_display': '靶道冲突',
+                                'message': f'射手 {shooter.name} 在 {schedule_date.isoformat()} {plan.daily_start_time}-{plan.daily_end_time} 与 {existing.start_time}-{existing.end_time} 的排班冲突'
                             })
                             break
 
@@ -335,18 +338,49 @@ class TrainingPlanViewSet(ExportMixin, viewsets.ModelViewSet):
                                 'ammo_warnings': ammo_warnings
                             })
 
+                        match_score = min(100, 85 + (0 if recent_violations else 15) + (5 if plan.required_qualification and shooter.qualification_level == plan.required_qualification else 0))
+                        warning_list = []
+                        if recent_violations >= 2:
+                            warning_list.append(f'30天内{recent_violations}次严重违规')
+                        if ammo_warnings:
+                            warning_list.extend([f'{w["ammo_type"]}库存不足' for w in ammo_warnings])
+
                         recommendations.append({
                             'shooter_id': shooter.id,
                             'shooter_name': shooter.name,
                             'lane_id': lane.id,
                             'lane_name': lane.name,
                             'date': schedule_date.isoformat(),
+                            'schedule_date': schedule_date.isoformat(),
                             'start_time': plan.daily_start_time.strftime('%H:%M'),
                             'end_time': plan.daily_end_time.strftime('%H:%M'),
                             'allocated_rounds': plan.total_rounds_per_shooter,
                             'reason': f'资质匹配: {shooter.qualification_level}, 靶道可用: {lane.name}',
                             'has_conflict': False,
-                            'firearm_available': available_firearms.count() > 0
+                            'firearm_available': available_firearms.count() > 0,
+                            'shooter': shooter.id,
+                            'target_lane': lane.id,
+                            'firearm': available_firearms.first().id if available_firearms.exists() else None,
+                            'shooter_info': {
+                                'id': shooter.id,
+                                'name': shooter.name,
+                                'unit': shooter.unit,
+                                'qualification_level': shooter.qualification_level,
+                                'qualification_level_display': shooter.get_qualification_level_display() if hasattr(shooter, 'get_qualification_level_display') else shooter.qualification_level
+                            },
+                            'target_lane_info': {
+                                'id': lane.id,
+                                'lane_number': lane.lane_number,
+                                'name': lane.name,
+                                'distance': lane.distance
+                            },
+                            'firearm_info': {
+                                'id': available_firearms.first().id,
+                                'name': available_firearms.first().name,
+                                'serial_number': available_firearms.first().serial_number
+                            } if available_firearms.exists() else None,
+                            'match_score': match_score,
+                            'warnings': warning_list
                         })
                         allocated = True
                         break

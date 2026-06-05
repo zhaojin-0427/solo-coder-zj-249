@@ -46,11 +46,12 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" placeholder="全部" clearable style="width: 130px">
-            <el-option label="待确认" value="pending" />
-            <el-option label="已确认" value="confirmed" />
-            <el-option label="已完成" value="completed" />
-            <el-option label="已取消" value="cancelled" />
-            <el-option label="已冲突" value="conflict" />
+            <el-option
+              v-for="opt in reservationStatusOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="预约日期">
@@ -290,6 +291,10 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { laneReservationApi, shootersApi, targetLaneApi, trainingPlanApi } from '@/api'
+import {
+  formatDate, formatDateTime, getReservationStatusType, downloadFile
+} from '@/utils'
+import { getFilterOptions, buildFilterParams, buildPaginationParams } from '@/adapters'
 import dayjs from 'dayjs'
 
 const dialogVisible = ref(false)
@@ -345,19 +350,9 @@ const rules = {
   purpose: [{ required: true, message: '请输入用途', trigger: 'blur' }]
 }
 
-const formatDate = (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-const formatDateTime = (date) => date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-'
+const reservationStatusOptions = getFilterOptions('laneReservation', 'status')
 
-const getStatusType = (status) => {
-  const map = {
-    pending: 'warning',
-    confirmed: 'primary',
-    completed: 'success',
-    cancelled: 'info',
-    conflict: 'danger'
-  }
-  return map[status] || 'info'
-}
+const getStatusType = getReservationStatusType
 
 const disabledDate = (time) => {
   return time < dayjs().subtract(1, 'day').endOf('day')
@@ -381,13 +376,11 @@ const loadOptions = async () => {
 const loadReservations = async () => {
   try {
     const params = {
-      page: pagination.page,
-      page_size: pagination.size
+      ...buildPaginationParams(pagination),
+      ...buildFilterParams(filterForm, {
+        shooter_name: 'search'
+      })
     }
-    if (filterForm.shooter_name) params.search = filterForm.shooter_name
-    if (filterForm.target_lane) params.target_lane = filterForm.target_lane
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.reservation_date) params.reservation_date = filterForm.reservation_date
 
     const res = await laneReservationApi.list(params)
     reservationList.value = res.data.results || res.data
@@ -550,11 +543,11 @@ const viewCalendar = () => {
 
 const exportData = async () => {
   try {
-    const params = {}
-    if (filterForm.shooter_name) params.search = filterForm.shooter_name
-    if (filterForm.target_lane) params.target_lane = filterForm.target_lane
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.reservation_date) params.reservation_date = filterForm.reservation_date
+    const params = {
+      ...buildFilterParams(filterForm, {
+        shooter_name: 'search'
+      })
+    }
 
     const res = await laneReservationApi.export(params)
     downloadFile(res, `靶道预约_${dayjs().format('YYYYMMDD')}.csv`)
@@ -562,17 +555,6 @@ const exportData = async () => {
     console.error(e)
     ElMessage.error('导出失败')
   }
-}
-
-const downloadFile = (response, filename) => {
-  const url = window.URL.createObjectURL(new Blob([response.data]))
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', filename)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 watch([() => form.target_lane, () => form.reservation_date, () => form.start_time, () => form.end_time], () => {

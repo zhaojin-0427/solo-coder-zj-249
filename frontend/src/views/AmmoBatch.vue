@@ -52,11 +52,12 @@
             </el-form-item>
             <el-form-item label="状态">
               <el-select v-model="filterForm.status" placeholder="全部" clearable style="width: 130px">
-                <el-option label="在库" value="in_stock" />
-                <el-option label="部分使用" value="partial" />
-                <el-option label="已用完" value="exhausted" />
-                <el-option label="已过期" value="expired" />
-                <el-option label="已报废" value="scrapped" />
+                <el-option
+                  v-for="opt in batchStatusOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item label="供应商">
@@ -338,6 +339,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ammoBatchApi, ammoBatchFlowApi, ammunitionApi } from '@/api'
+import {
+  formatDate, formatDateTime, getBatchStatusType,
+  getFlowType, getFlowColor, isExpiring, downloadFile
+} from '@/utils'
+import {
+  getFilterOptions, buildFilterParams, buildPaginationParams,
+  adaptAmmoBatchFlow
+} from '@/adapters'
 import dayjs from 'dayjs'
 
 const activeTab = ref('batches')
@@ -404,50 +413,7 @@ const batchRules = {
   supplier: [{ required: true, message: '请输入供应商', trigger: 'blur' }]
 }
 
-const formatDate = (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-const formatDateTime = (date) => date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-'
-
-const getBatchStatusType = (status) => {
-  const map = {
-    in_stock: 'success',
-    partial: 'warning',
-    exhausted: 'info',
-    expired: 'danger',
-    scrapped: 'danger'
-  }
-  return map[status] || 'info'
-}
-
-const getFlowType = (type) => {
-  const map = {
-    in: 'success',
-    out: 'warning',
-    issue: 'primary',
-    return: 'info',
-    consume: 'danger',
-    adjust: 'warning',
-    scrap: 'danger'
-  }
-  return map[type] || 'primary'
-}
-
-const getFlowColor = (type) => {
-  const map = {
-    in: '#67c23a',
-    out: '#e6a23c',
-    issue: '#409EFF',
-    return: '#909399',
-    consume: '#f56c6c',
-    adjust: '#e6a23c',
-    scrap: '#c0392b'
-  }
-  return map[type] || '#409EFF'
-}
-
-const isExpiring = (date) => {
-  if (!date) return false
-  return dayjs(date).diff(dayjs(), 'month') <= 3
-}
+const batchStatusOptions = getFilterOptions('ammoBatch', 'quality_status')
 
 const loadAmmoList = async () => {
   try {
@@ -461,13 +427,12 @@ const loadAmmoList = async () => {
 const loadBatches = async () => {
   try {
     const params = {
-      page: pagination.page,
-      page_size: pagination.size
+      ...buildPaginationParams(pagination),
+      ...buildFilterParams(filterForm, {
+        batch_number: 'search',
+        supplier: 'manufacturer'
+      })
     }
-    if (filterForm.batch_number) params.search = filterForm.batch_number
-    if (filterForm.ammunition) params.ammunition = filterForm.ammunition
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.supplier) params.supplier = filterForm.supplier
 
     const res = await ammoBatchApi.list(params)
     batchList.value = res.data.results || res.data
@@ -489,17 +454,17 @@ const loadFlows = async () => {
   if (!selectedBatch.value) return
   try {
     const params = {
-      page: flowPagination.page,
-      page_size: flowPagination.size,
+      ...buildPaginationParams(flowPagination),
+      ...buildFilterParams(flowFilter, {
+        operator: 'search'
+      }),
       ammo_batch: selectedBatch.value.id
     }
-    if (flowFilter.flow_type) params.flow_type = flowFilter.flow_type
-    if (flowFilter.operator) params.search = flowFilter.operator
 
     const res = await ammoBatchFlowApi.list(params)
-    flowList.value = (res.data.results || res.data).sort((a, b) =>
-      dayjs(b.operation_time).valueOf() - dayjs(a.operation_time).valueOf()
-    )
+    flowList.value = (res.data.results || res.data)
+      .map(f => adaptAmmoBatchFlow(f))
+      .sort((a, b) => dayjs(b.operation_time).valueOf() - dayjs(a.operation_time).valueOf())
     flowPagination.total = res.data.count || flowList.value.length
   } catch (e) {
     console.error(e)
@@ -619,11 +584,12 @@ const scrapBatch = () => {
 
 const exportData = async () => {
   try {
-    const params = {}
-    if (filterForm.batch_number) params.search = filterForm.batch_number
-    if (filterForm.ammunition) params.ammunition = filterForm.ammunition
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.supplier) params.supplier = filterForm.supplier
+    const params = {
+      ...buildFilterParams(filterForm, {
+        batch_number: 'search',
+        supplier: 'manufacturer'
+      })
+    }
 
     const res = await ammoBatchApi.export(params)
     downloadFile(res, `弹药批次_${dayjs().format('YYYYMMDD')}.csv`)
@@ -635,9 +601,12 @@ const exportData = async () => {
 
 const exportFlows = async () => {
   try {
-    const params = { ammo_batch: selectedBatch.value.id }
-    if (flowFilter.flow_type) params.flow_type = flowFilter.flow_type
-    if (flowFilter.operator) params.search = flowFilter.operator
+    const params = {
+      ...buildFilterParams(flowFilter, {
+        operator: 'search'
+      }),
+      ammo_batch: selectedBatch.value.id
+    }
 
     const res = await ammoBatchFlowApi.export(params)
     downloadFile(res, `批次流向_${dayjs().format('YYYYMMDD')}.csv`)
@@ -645,17 +614,6 @@ const exportFlows = async () => {
     console.error(e)
     ElMessage.error('导出失败')
   }
-}
-
-const downloadFile = (response, filename) => {
-  const url = window.URL.createObjectURL(new Blob([response.data]))
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', filename)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 onMounted(() => {

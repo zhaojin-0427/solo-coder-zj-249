@@ -38,19 +38,22 @@
             </el-form-item>
             <el-form-item label="状态">
               <el-select v-model="filterForm.status" placeholder="全部" clearable style="width: 150px">
-                <el-option label="草稿" value="draft" />
-                <el-option label="已批准" value="approved" />
-                <el-option label="进行中" value="in_progress" />
-                <el-option label="已完成" value="completed" />
-                <el-option label="已取消" value="cancelled" />
+                <el-option
+                  v-for="opt in planStatusOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item label="训练类型">
               <el-select v-model="filterForm.plan_type" placeholder="全部" clearable style="width: 150px">
-                <el-option label="基础训练" value="basic" />
-                <el-option label="进阶训练" value="advanced" />
-                <el-option label="考核训练" value="exam" />
-                <el-option label="应急训练" value="emergency" />
+                <el-option
+                  v-for="opt in planTypeOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item label="日期范围">
@@ -153,10 +156,12 @@
             </el-form-item>
             <el-form-item label="状态">
               <el-select v-model="scheduleFilter.status" placeholder="全部" clearable style="width: 130px">
-                <el-option label="待执行" value="scheduled" />
-                <el-option label="进行中" value="in_progress" />
-                <el-option label="已完成" value="completed" />
-                <el-option label="已取消" value="cancelled" />
+                <el-option
+                  v-for="opt in scheduleStatusOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -535,6 +540,14 @@ import {
   trainingPlanApi, trainingScheduleApi, scheduleRecommendationApi,
   shootersApi, ammunitionApi, targetLaneApi, firearmApi
 } from '@/api'
+import {
+  formatDate, getPlanStatusType, getScheduleStatusType,
+  getMatchColor, downloadFile
+} from '@/utils'
+import {
+  getFilterOptions, buildFilterParams, buildPaginationParams,
+  adaptTrainingSchedule
+} from '@/adapters'
 import dayjs from 'dayjs'
 
 const activeTab = ref('plans')
@@ -641,34 +654,11 @@ const planShooters = computed(() => {
   return shooterList.value.filter(s => selectedPlan.value.target_shooters?.includes(s.id))
 })
 
-const formatDate = (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+const planTypeOptions = getFilterOptions('trainingPlan', 'plan_type')
+const planStatusOptions = getFilterOptions('trainingPlan', 'status')
+const scheduleStatusOptions = getFilterOptions('trainingSchedule', 'status')
 
-const getStatusType = (status) => {
-  const map = {
-    draft: 'info',
-    approved: 'primary',
-    in_progress: 'warning',
-    completed: 'success',
-    cancelled: 'danger'
-  }
-  return map[status] || 'info'
-}
-
-const getScheduleStatusType = (status) => {
-  const map = {
-    scheduled: 'info',
-    in_progress: 'warning',
-    completed: 'success',
-    cancelled: 'danger'
-  }
-  return map[status] || 'info'
-}
-
-const getMatchColor = (score) => {
-  if (score >= 90) return '#67c23a'
-  if (score >= 70) return '#e6a23c'
-  return '#f56c6c'
-}
+const getStatusType = getPlanStatusType
 
 const disabledDate = (time) => {
   if (!selectedPlan.value) return false
@@ -697,14 +687,13 @@ const loadOptions = async () => {
 const loadPlans = async () => {
   try {
     const params = {
-      page: planPagination.page,
-      page_size: planPagination.size
+      ...buildPaginationParams(planPagination),
+      ...buildFilterParams(filterForm, {
+        plan_name: 'search',
+        date_range: 'start_date'
+      })
     }
-    if (filterForm.plan_name) params.search = filterForm.plan_name
-    if (filterForm.status) params.status = filterForm.status
-    if (filterForm.plan_type) params.plan_type = filterForm.plan_type
     if (filterForm.date_range?.length === 2) {
-      params.start_date__gte = filterForm.date_range[0]
       params.end_date__lte = filterForm.date_range[1]
     }
 
@@ -727,12 +716,12 @@ const loadSchedules = async () => {
   if (!selectedPlan.value) return
   try {
     const params = {
-      page: schedulePagination.page,
-      page_size: schedulePagination.size,
+      ...buildPaginationParams(schedulePagination),
+      ...buildFilterParams(scheduleFilter, {
+        shooter_name: 'search'
+      }),
       training_plan: selectedPlan.value.id
     }
-    if (scheduleFilter.shooter_name) params.search = scheduleFilter.shooter_name
-    if (scheduleFilter.status) params.status = scheduleFilter.status
 
     const res = await trainingScheduleApi.list(params)
     scheduleList.value = res.data.results || res.data
@@ -912,7 +901,7 @@ const generateSchedules = async (row) => {
 
   try {
     const res = await trainingPlanApi.generateSchedules(row.id)
-    recommendations.value = res.data.recommendations || []
+    recommendations.value = (res.data.recommendations || []).map(r => adaptTrainingSchedule(r))
     conflicts.value = res.data.conflicts || []
 
     await nextTick()
@@ -970,9 +959,12 @@ const exportData = async () => {
 
 const exportSchedules = async () => {
   try {
-    const params = { training_plan: selectedPlan.value.id }
-    if (scheduleFilter.shooter_name) params.search = scheduleFilter.shooter_name
-    if (scheduleFilter.status) params.status = scheduleFilter.status
+    const params = {
+      ...buildFilterParams(scheduleFilter, {
+        shooter_name: 'search'
+      }),
+      training_plan: selectedPlan.value.id
+    }
 
     const res = await trainingScheduleApi.export(params)
     downloadFile(res, `排班记录_${dayjs().format('YYYYMMDD')}.csv`)
@@ -980,17 +972,6 @@ const exportSchedules = async () => {
     console.error(e)
     ElMessage.error('导出失败')
   }
-}
-
-const downloadFile = (response, filename) => {
-  const url = window.URL.createObjectURL(new Blob([response.data]))
-  const link = document.createElement('a')
-  link.href = url
-  link.setAttribute('download', filename)
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 onMounted(() => {
